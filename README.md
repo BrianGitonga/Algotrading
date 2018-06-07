@@ -1,5 +1,6 @@
 ## Abstract
 
 Artificial intelligence (AI) and Machine Learning (ML) are being rapidly adopted for a range of applications in the financial services industry. As such, it is important to learn about artificial intelligence and machine learning and how these new fascinating technologies and the solutions they provide can be applied in the financial domain. This will help the reader understand the power of artificial intelligence and its ability to transform and replace the current rule-based systems. Some of the goals of this study include learning about prevailing successful Artificial Intelligence system trading platforms; effectiveness of artificial intelligence in the stocks, exchange traded funds and forex domain; effectiveness of an automated systems in crisis situations in the new economic environment; and interpretation of psychological factors by computers. The purpose of this study is to determine if Artificial intelligence systems can play a bigger role in the years to come in a financial trading capacity. My research question therefore is; “leveraging artificial intelligence to build algorithmic trading strategies. Can machines replace and be better traders than humans?”
-Keywords: artificial intelligence, machine learning, algo-trading, deep learning, sentimental analysis
+
+**Keywords:** _artificial intelligence, machine learning, algo-trading, deep learning, sentimental analysis_
 
