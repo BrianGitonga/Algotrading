@@ -1,6 +1,37 @@
-## Abstract
+## Welcome to GitHub Pages
 
-Artificial intelligence (AI) and Machine Learning (ML) are being rapidly adopted for a range of applications in the financial services industry. As such, it is important to learn about artificial intelligence and machine learning and how these new fascinating technologies and the solutions they provide can be applied in the financial domain. This will help the reader understand the power of artificial intelligence and its ability to transform and replace the current rule-based systems. Some of the goals of this study include learning about prevailing successful Artificial Intelligence system trading platforms; effectiveness of artificial intelligence in the stocks, exchange traded funds and forex domain; effectiveness of an automated systems in crisis situations in the new economic environment; and interpretation of psychological factors by computers. The purpose of this study is to determine if Artificial intelligence systems can play a bigger role in the years to come in a financial trading capacity. My research question therefore is; “leveraging artificial intelligence to build algorithmic trading strategies. Can machines replace and be better traders than humans?”
+You can use the [editor on GitHub](https://github.com/BrianGitonga/Algotrading-/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
 
-**Keywords:** _artificial intelligence, machine learning, algo-trading, deep learning, sentimental analysis_
+Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
 
+### Markdown
+
+Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+
+```markdown
+Syntax highlighted code block
+
+# Header 1
+## Header 2
+### Header 3
+
+- Bulleted
+- List
+
+1. Numbered
+2. List
+
+**Bold** and _Italic_ and `Code` text
+
+[Link](url) and ![Image](src)
+```
+
+For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+
+### Jekyll Themes
+
+Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/BrianGitonga/Algotrading-/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+
+### Support or Contact
+
+Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
