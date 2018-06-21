@@ -1,0 +1,502 @@
+---
+title: 'Algorithmic Trading in R '
+author: ' '
+date: '`r Sys.Date()`'
+output:
+  word_document:
+    toc: yes
+  pdf_document:
+    fig_caption: yes
+    toc: yes
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE,echo = T,tidy =  FALSE,highlight = TRUE)
+options(digits=6,scipen = 999)
+Sys.setlocale("LC_TIME", "C")
+```
+
+\newpage
+
+#**I. Introduction**
+
+This paper aims to develop predictive models for predicting the direction of the forex market. The dataset represents the major currency pair, EUR/USD with a 15 minute time frame dating back to May, 2018. The dataset consists of five variables. Time, Open, High, Low and Close. Open, high, low and close are different bid prices at different times with relatively intuitive names. Time is marks the date, hour, minute and second of the closing price. 
+
+The main objective is to classify the direction of the market (binary variable: up trend or down trend), using different models, namely, Decision Trees,  Random Forests and Support vector machines (SVMs) on the training dataset. Good classification on the testing dataset will lead to better trading entries. In this matter, machine learning is used in order to frame rules for a forex strategy using the more accurate algorithm.
+
+The R language is used to demonstrate modeling techniques.
+
+To use machine learning in trading, we start with historical data for the EUR/USD currency pair and add indicators to build a model in R. We then select the right Machine learning algorithm to make the predictions.
+
+**Indicators** - Indicators are at heart of the trading strategy. Indicators can include Technical indicators (EMA, BBANDS, MACD, etc.), Fundamental indicators, or/and Macroeconomic indicators. In this project, we include only the technical indicators. 
+
+  - _Overlays_: Overlays typically have the same or similar scale to the underlying asset and are meant to be laid over to chart of price history. Common examples are the simple moving average, Bollinger Bands.
+
+  - _Oscillators_: Oscillators typically oscillate around zero. Common examples are the MACD (Moving Average Convergence Divergence Oscillator), Stochastic Oscillator, and RSI.
+  
+Based on the EUR/USD currency pair with a 15 minute time frame dating back to May, 2018. 14 indicators are determined like MACD (12, 26, 9), and Parabolic SAR with default settings of (0.02, 0.2) to build our model, and then four machine learning techniques are used for the classification problem until to predict future directions.
+
+**Machine Learning algorithms** - Machine Learning is a computer program designed to learn from the data, further, machine learning algorithms are focusing on the predictive accuracy of models. ML algorithms can be either used to predict a category (classification problem) or to predict the direction and magnitude (regression problem).
+
+The four machine learning are as follows:
+
+**Decision Tree**  - The decision tree is really an upside down tree, and it consists of nodes and branches. Each node presents a question, and branches emanating from the node represent possible answers (yes/no, for example).
+
+**Ensemble Trees** - The idea of the Ensemble Tree algorthm is simple, instead of training one model on a set of observations, we use the power of multiple models combined together to train on the same set of observations. _Random Forest_ is one of the most popular decision tree-based ensemble models.
+
+**Support Vector Machine (SVM)** - SVM looks for the optimal hyperplane separating the two classes by maximizing the margin around the separating hyperplane. Support vectors are the points lying on the margins.
+
+**Neural Networks** - Neural networks are pretty complicated, involving non-linear transformations of our inputs into a 'hidden layer' of nodes that are then translated into our output prediction with a potentially very large number of parameters involved. 
+
+#**II. Data Pre-processing**
+
+## _2.1 Feature Engineering: Technical indicators_
+
+First, we load the necessary libraries in R, and then read the EUR/USD data. We then compute ADX, IRS, MACD and Parabolic SAR, ... using their respective functions available in the "TTR" package. The trend is computed as the subtraction of the closing EUR/USD price from the SAR value for each data point. Finally, Up/down class is created based on the price change. Since ML models tend to perform well with normalization, the data are pre-processed to have the same mean and variance for each predictor.
+
+
+
+```{r}
+
+#~~~~~~~~~~~~~~
+#~~ Frame rules to trade EUR/USD using Support Vector Machine (SVM) algorithm
+#~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Load libraries
+
+library(data.table)
+library(tidyverse)
+
+library(quantmod)
+library(TTR)
+# Data modeling
+library(caret)
+library(rpart)
+library(e1071)
+library(randomForest)
+
+
+#Import the EUR/USD data into R
+Data <- fread("~/EURUSD_M1 dataset_201805.csv", dec = ",")
+```
+
+First, let us check the price summary at May, 2018:
+
+```{r}
+### data summary
+Data %>% summarise(N=n(), Min = min(Close),`1st Qu.` = quantile(Close, 0.25),
+             Median = median(Close),Mean = mean(Close),
+             `3rd Qu.` = quantile(Close, 0.75),Max = max(Close), 
+             SD = sd(Close)) %>% 
+   knitr::kable(caption ="Table 1: Descriptive statistics of the closing price")
+```
+
+The Table1 shows the summary statistics for the one-minute close price of May 2018, that had an average of 1.18194 and a standard deviaton of 0.0128691. the closing price ranged from 1.15128 to 1.20768. This distribution is drawn on the Figure 1:
+
+```{r, fig.cap= "Histogram of the closing price of EUR/USD currency pair at May, 2018", fig.height=4,fig.width=5}
+### Graphic
+ggplot(Data, aes(Close)) + 
+  geom_histogram(fill="blue", bins = 10) +
+  theme_bw()
+```
+
+
+```{r}
+# select 15 minutes period
+Data <- Data[seq(1,nrow(Data),15),]
+## Create the time index with the correct format
+Data$Time <- as.POSIXct(Data$Time)
+
+# create an xts time series object
+Dataxts <- as.xts(Data)
+```
+
+```{r, echo=FALSE}
+rm(Data)
+
+```
+
+
+`Dataxts` is a now an xts object that contains open, high, low, and close data.
+
+In The following charts I will add these technical indicators:
+
+  - Boolinger bands
+ 
+  - Exponential moving averages
+ 
+  - Stocastic Momentum Index
+
+
+```{r, fig.height=7, fig.width=10, fig.cap="Chartseries of EUR/USD with indicators",eval=F}
+## ------------------------------------------------------------------------
+chartSeries(Dataxts[seq(1,nrow(Dataxts),120),], TA = "addBBands(); addDEMA(13); 
+            addDEMA(26)")
+```
+
+```{r, fig.height=7, fig.width=10, fig.cap="Chartseries of EUR/USD with  SMI indicator",eval=F}
+#RSI indictor added to a forex pair (EUR/USD)
+chartSeries(Dataxts[seq(1,nrow(Dataxts),120),],TA="addSMI(n=50)")
+```
+
+
+Thereafter we merge the indicators and the target into one data frame called *Forex data*. 
+
+```{r}
+
+#---------------     Calculation of technical Indicators
+
+atr_ind <- ATR(Dataxts, n = 1)$atr ## Average True Range Indicator
+ADX_ind <- ADX(Dataxts, n = 2)$ADX## Weilders Directional Index
+BBand_ind <- BBands(Dataxts[,2:4])## Bands
+Aroon_ind <- aroon(Dataxts[,c("High","Low")], n = 1)## Aroon Indicator
+
+macd_ind <- data.frame(MACD(Dataxts$Close, maType = "EMA", percent = F)) ## MACD
+histogram <- data.frame(histogram = macd_ind$macd - macd_ind$signal)
+names(histogram)  <- c("histogram")
+
+sar_ind <- SAR(Dataxts[ , c("High","Low")], accel = c(0.02, 0.2))## SAR
+trend <- data.frame(trend = Dataxts$Close - sar_ind)
+names(trend)  <- c("trend")
+
+roc <- data.frame(ROC = ROC(Dataxts$Close, n = 1, type = c("continuous", "discrete"),
+                            na.pad = TRUE))## Rate of change
+names(roc)  <- c("roc")
+
+rsi_ind <-  data.frame(RSI = RSI(Dataxts$Close, n = 14, 
+                                 maType = "WMA")) ## Relative strenght index
+names(rsi_ind)  <- c("RSI")
+
+EMA13 <- EMA(Dataxts$Close,13) # 13 Exponential Moving Average (EMA)
+names(EMA13)  <- c("EMA13")
+EMA26 <- EMA(Dataxts$Close,26) # 26 Exponential Moving Average (EMA)
+names(EMA26)  <- c("EMA26")
+
+price <- data.frame(price = Dataxts$Close - Dataxts$Open)
+names(price)  <- c("price")
+
+## Target 
+target <- data.frame(target = ifelse(price > 0, "Up", "Down")) # calculate trade direction
+names(target)  <- c("target")
+
+
+#Add indicators to the data
+fx_indicators <- data.frame(trend, histogram, EMA26, EMA13, Aroon_ind, 
+                            BBand_ind, ADX_ind, atr_ind,roc ,rsi_ind)
+
+# Standardize the dataset
+#fx.trans <- scale(fx_indicators, center = TRUE, scale = TRUE)
+
+# Apply the Box-Cox transformations & Center & Scale:
+indicators.trans <- 
+  predict(preProcess(fx_indicators,
+                      method = c("BoxCox" ,"center", "scale")), fx_indicators)
+
+fx.trans <- cbind(target, indicators.trans ) %>% 
+  na.omit() %>% droplevels()# Remove NA observations
+```
+
+The set of indicators are transformed, centred and scaled. Box-Cox function is used to calculate the required quantities for the transformation.
+
+The indicators and the target are stored in a data frame called `fx.trans`, there are 15 indicators and 2,168 samples in rows. The outcome classes are contained in a factor variable called `target` 
+
+```{r}
+str(fx.trans)
+```
+
+
+```{r, echo = FALSE}
+rm(target,atr_ind ,ADX_ind ,BBand_ind ,Aroon_ind ,macd_ind ,histogram ,sar_ind ,trend ,roc ,rsi_ind ,EMA13 ,EMA26,price)
+```
+
+
+## _2.2 Data spliting_
+
+To allocate data to cluster building and  evaluating performance, the *Forex data* dataset is splited into two parts: training and test data. First 70% of the *Forex data* will belong to the training set, and the other 30% to the test set. Then *EURUSD_train* dataset is allocated to  Cluster building, which contain 1,517 cases from 2018-05-01 08:15:00 to 2018-05-23 04:32:00, and  *EURUSD_test* dataset to evaluating performance, which contain 651 cases, from 2018-05-23 05:02:0 to 2018-05-31 23:54:00.
+
+```{r}
+# Create Training and Test data 
+trainRows <- 1:(nrow(fx.trans)*0.7)# row indices for training data
+
+EURUSD_train <- fx.trans[trainRows,]
+EURUSD_test <- fx.trans[-trainRows,]
+
+
+```
+
+```{r, echo=FALSE}
+rm(fx_indicators,indicators.trans,fx.trans,trainRows, Dataxts)
+```
+
+## _2.3 Resampling_
+
+Each model used repeated 10-fold cross-validation, the Repeated 10-fold cross-validation is used in order to use repeated training/test splits.
+
+# **III. Model Building using the Tuning Parameters**
+
+Now, let us fit the models, and evaluate performance, and used appropiate functions to automatically create the resampled data sets in order to determine the tuning parameters.
+
+## _3.1 Decision Tree Learning Method_
+
+The Classification tree method is conducted in order to create a classification tree to predict the market direction based on the 15 indicators. Decision tree is a nonparametric model, having no underlying assumptions for the model. 
+
+### 3.1.1 Simple Decision Tree Model
+
+```{r}
+#Build the decision tree on Train Data (EURUSD_train) 
+#and then test data (EURUSD_test) will be used for performance testing
+#-------------
+# parallel
+library(doParallel) 
+cl <- makePSOCKcluster(detectCores()) 
+clusterEvalQ(cl, library(foreach))
+registerDoParallel(cl)
+
+#--------------------------------------------------------------
+
+set.seed(222)
+ST_model <- train(target  ~ .,
+                data = EURUSD_train,
+                method = "rpart2",# The "method" argument indicates the model type.
+                tuneLength = 10,
+                trControl = trainControl(method = "repeatedcv", repeats = 3, 
+                                         allowParallel = TRUE))
+#--------------------------------------------------------------
+stopCluster(cl)
+ST_model
+
+
+```
+
+The Figure 3 shows the resulting dendogram that the resulting decision tree classifies the market direction as Up or Down.
+
+```{r, fig.cap="Plot of the decision tree", fig.height=6,fig.width=6}
+library(rpart.plot)
+rpart.plot(ST_model$finalModel)
+```
+
+Our decision tree shows us that there is an important relationship between the ATR, ROC and EMA13 indicators. the ATR is a good indicator for defining the trend of the market. Plus, the EMA13 value can affect the prediction of down trend class. We saw that ATR, ROC and EMA13 indicators affects most the trend of the market in the final situation.
+
+### 3.1.2 Decision Tree Accuracy and Predictions
+
+Now, let us make classification predictions on the testing set using the model built with the training set. Before predicting new sample using our classifier, the new sample is firstly centered and scaled using the values determined by the training set:
+
+```{r}
+EURUSD_test$pred.ST <- predict(ST_model,EURUSD_test,type = "raw")
+```
+
+The accuracy was 63.4% as shown in the confusion matrix.
+
+```{r}
+# output confusion matrix
+confusionMatrix(EURUSD_test$target,EURUSD_test$pred.ST)
+```
+
+we pursue a random forest algorithm to achieve a better prediction rate.
+
+## _3.2 Random Forest_
+
+### 3.2.1 Random Forest Model building
+
+The random forest is a collection of set of decision trees, and the majority vote is the decision.
+A random forest model was built using all of the prediction variables and the type variable as the categorical outcome.
+
+
+```{r}
+# random forest using all predictors
+# parallel
+library(doParallel) 
+cl <- makePSOCKcluster(detectCores()) 
+clusterEvalQ(cl, library(foreach))
+registerDoParallel(cl)
+
+#--------------------------------------------------------------
+set.seed(222)
+RF_model <- train(target  ~ .,
+                data = EURUSD_train,
+                method = "rf",
+                tuneLength = 10,
+                trControl = trainControl(method = "repeatedcv", repeats = 3,
+                                         allowParallel = TRUE))
+#--------------------------------------------------------------
+stopCluster(cl)
+RF_model
+```
+
+The confusion matrix shows the the forest is accurate 68.38 percent of the time.
+
+### 3.2.2 Random Forest Accuracy and Predictions
+
+Again, We make predictions of the testing set against the random model and the resulting confusion matrix is shown. The accuracy is reported at 67.4% which is already quite good.
+
+```{r}
+EURUSD_test$pred.rf <- predict(RF_model$finalModel,newdata = EURUSD_test)
+# output confusion matrix
+confusionMatrix(EURUSD_test$target,EURUSD_test$pred.rf)
+```
+
+The Figure 5 displays the variables that affected the random forest, from greatest impact to least impact, from top to bottom. that ROC, and ATR indicators have a strong impact on distinguishing the future price movement in 15-minute Trend Trading System.
+
+```{r, fig.cap= "Random Forest variable importance scores for the EUR/USD 15 minutes dataset", fig.height=5,fig.width=6}
+# plot variable importance
+plot(varImp(RF_model, pch = 20))
+```
+
+
+## _3.3 Support vector machines (SVMs)_
+
+### 3.3.1 Model Building
+
+To tune an SVM model using the EURUSD training set samples, the `train` function is used, similarly, the 15 indicators are used to model the direction of the market (target):
+
+```{r}
+#Use the SVM algorithm to find the patterns and then make predictions
+# parallel
+library(doParallel) 
+cl <- makePSOCKcluster(detectCores()) 
+clusterEvalQ(cl, library(foreach))
+registerDoParallel(cl)
+
+#--------------------------------------------------------------
+
+set.seed(222)
+SVM_model <- train(target  ~ .,
+                data = EURUSD_train,
+                method = "svmRadial",# The "method" argument indicates the model type.
+                tuneLength = 10,
+                trControl = trainControl(method = "repeatedcv", repeats = 3,
+                                         allowParallel = TRUE))
+#--------------------------------------------------------------
+stopCluster(cl)
+SVM_model
+```
+
+Training set accuracy = 67.78%
+
+```{r, fig.cap="line plot of the average performance of the SVM model"}
+# A line plot of the average performance
+plot(SVM_model, scales = list(x = list(log = 2)))
+```
+
+### 3.3.2 Model evaluation
+
+Making classification predictions on the testing set using the model built with the training set. We are getting an accuracy of 57.6% here.
+
+```{r}
+EURUSD_test$pred_svm <- predict(SVM_model, EURUSD_test, type = "raw")
+```
+
+Testing set accuracy = 57.6% indicating that svm showed poor performance in unknown data.
+
+
+```{r}
+# output confusion matrix
+confusionMatrix(EURUSD_test$target,EURUSD_test$pred_svm)
+```
+
+The binary SVM has done moderately well on the Forex data set. The classification matrix shows that the correct classification is of 57.6% (61.4% of the downtrend and 55.2% of the upward trend are correctly identified).
+
+The Figure below displays the plot of variable importance. As the figure shows, ROC is the most important financial trading indicators.
+
+```{r, fig.cap= "SVM variable importance scores for the EUR/USD 15 minutes dataset", fig.height=5,fig.width=6}
+# plot variable importance
+plot(varImp(SVM_model, pch = 20))
+```
+
+## _3.4 Neural Networks_
+
+Last algorithm that we are going to use on the forex data set is neural networks. Neural networks mimic the way brain and solves the problems with neural units which has a function that combines all the inputs and propagate to other neurons.
+
+
+### 3.4.1 Model Building
+
+We train the Neural Network model on training data, and measure it's performance on validation data:
+
+As before, train provides a wrapper to this function to tune the model over the amount of weight decay and the number of hidden units, that Models were fit with hidden units ranging from 1 to 10 and 3 weight decay values: 0,  0.1, and 1.
+
+```{r}
+#Use the SVM algorithm to find the patterns and then make predictions
+# parallel
+library(doParallel) 
+cl <- makePSOCKcluster(detectCores()) 
+clusterEvalQ(cl, library(foreach))
+registerDoParallel(cl)
+
+#--------------------------------------------------------------
+
+set.seed(222)
+NNET_model <- train(target  ~ .,
+                data = EURUSD_train,
+                method = "nnet",# The "method" argument indicates the model type.
+                tuneGrid = expand.grid(.size = 1:10, .decay = c(0,.1, 1)),
+                maxit = 2000,
+                trControl = trainControl(method = "repeatedcv", repeats = 3,
+                                         allowParallel = TRUE))
+#--------------------------------------------------------------
+stopCluster(cl)
+NNET_model
+```
+
+### 3.4.2 Model Evaluation
+
+The best performance is recorded by the Neural networks model, with size = 2 and decay =0.1. Results show that neural network classification with 10-fold cross validation can predict the results with 70.7% accuracy.
+
+```{r}
+EURUSD_test$pred_NNET <- predict(NNET_model, EURUSD_test, type = "raw")
+```
+
+
+```{r}
+# output confusion matrix
+confusionMatrix(EURUSD_test$target,EURUSD_test$pred_NNET)
+```
+
+The Figure 8 displays the variables that affected the Neural Network, from greatest impact to least impact, from top to bottom. that ROC, ATR and aroonUp indicators have a strong impact on distinguishing the future price movement in 15-minute Trend Trading System.
+
+```{r, fig.cap= "Neural Network variable importance scores for the EUR/USD 15-minutes dataset", fig.height=5,fig.width=6}
+# plot variable importance
+plot(varImp(NNET_model))
+```
+
+```{r, fig.cap= "Graphical Representation of our Neural Network"}
+library(NeuralNetTools)
+plotnet(NNET_model$finalModel, y_names = "target")
+```
+
+
+#**IV. Between-Model Comparisons**
+
+The four models are compared based on their cross-validation statistics.
+
+```{r}
+resamp <- resamples(
+  list(`Decision Tree`=ST_model, `Random Forest` =  RF_model, 
+       SVM = SVM_model, `Neural Networks` = NNET_model))
+ summary(resamp)
+```
+
+The summary indicates that the performance distributions are slightly different. Single Decision Tree did not do well here. 
+
+To assess possible differences between the models, the diff method is used:
+
+```{r}
+modelDifferences <- diff(resamp)
+ summary(modelDifferences)
+```
+
+The p-values for the model comparisons of Random Forest and SVM are large (1.00 for accuracy and 1.00 for Kappa), which indicates that the models fail to show any difference in performance between Random Forest and SVM. However, the p-values for the model comparisons of Random Forest, SVM  and Decision Tree are less tha 0.05 level of significance (Decision Tree vs. Random Forest: 0.000441 for accuracy and 0.005728 for Kappa;Decision Tree vs. SVM: 0.019157 for accuracy and 0.00572 for Kappa ), which indicates that the Decision Tree model had less performance than Random Forest and SVM, respectively.
+
+
+# **V. Conclusion**
+
+The aim of this study was to apply ML techniques to trading problems that predicts well the the price's direction. We created technical indicators which could have some predictive power, we created also a target variable which could predict the direction of the prices (Y) and use data of May, 2018 15-minutes to train a ML model that can predict Y as close as possible to the actual value. Finally, we use this model to make predictions on new data where Y is unknown. 
+
+Four classification models were created to predict the direction of the market of the EUR/USD currency pair: a `Decision Tree`, `Random Forest`, SVM and a Neural Network. The single tree model is less accurate compared to the `Random Forest`, SVM and Neural Network models. Since the performance of the tow models, `Random Forest` and a SVM, were roughly equivalent, the `Neural Network` model was favored due to its high performance. Using the previously chosen test set of 651 prices, the confusion matrix associated with the _Neural Network_ model shows that the overall accuracy was 70.7%, which is better than the no-information rate of 51.2%. The test set had a Kappa value of 0.347, which suggests better performance than the decision tree model and the SVM model and Random Forest. If we choose the event of interest to be a down trend, the sensitivity from this model would be estimated to be 68.3 % and the specificity to be 75.6%.
+
+Finally, with this reliable analysis, it's not easy at to predict the  direction in t+1 of an unknown data because our output prediction worked moderately well in the above mentioned experiment. In addition, the LM models were builed using normalized indicators. However, normalization is tricky when working with time series data because future range of data is unknown. Data could fall out of bounds of the normalization leading to model errors.
+
+
+
+
+
